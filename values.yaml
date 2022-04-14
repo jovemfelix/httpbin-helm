@@ -6,7 +6,7 @@ fullnameOverride: ""
 smm:
   controlPlaneRef:
     name: basic
-    namespace: redhat-istio-system
+    namespace: istio-system
 serviceAccount:
   # Specifies whether a service account should be created
   create: true
@@ -40,3 +40,17 @@ resources: {}
 nodeSelector: {}
 tolerations: []
 affinity: {}
+
+## service mesh
+gateway:
+  name: ''
+  selector:
+    istio: ''
+  port:
+    number: ''
+    name: ''
+    protocol: ''
+  hosts: 'teste.com'
+
+vitualService:
+  name: ''

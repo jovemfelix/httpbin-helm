@@ -46,6 +46,28 @@ Selector version
 {{- define "httpbin.selectorVersion" -}}
 version: {{ .Values.version }}
 {{- end }}
+
+{{/*
+Selector istio
+*/}}
+{{- define "httpbin.selectorIstio" -}}
+{{- printf "istio: %s"  (default "ingressgateway" .Values.gateway.selector.istio) }}
+{{- end }}
+
+{{/*
+Hosts gateway
+*/}}
+{{- define "httpbin.gatewayHosts" -}}
+{{- default "*" .Values.gateway.hosts | quote}}
+{{- end }}
+
+{{/*
+Port gateway
+*/}}
+{{- define "httpbin.gatewayPortNumber" -}}
+{{- default .Values.gateway.port.number 80 }}
+{{- end }}
+
 {{/*
 Common labels
 */}}
@@ -53,6 +75,8 @@ Common labels
 {{ include "httpbin.selectorLabels" . }}
 {{ include "httpbin.selectorVersion" . }}
 {{- end }}
+
+
 {{/*
 Create the name of the service account to use
 */}}
@@ -61,5 +85,38 @@ Create the name of the service account to use
 {{- default (include "httpbin.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
+{{- end }}
+{{- end }}
+
+{{/*
+Create the name of the gateway name to use
+*/}}
+{{- define "httpbin.gatewayName" -}}
+{{- if .Values.gateway.name }}
+{{- .Values.gateway.name }}
+{{- else }}
+{{- printf "%s-%s"  (include "httpbin.fullname" . | trunc 61 )  "gw" }}
+{{- end }}
+{{- end }}
+
+{{/*
+Create the name of the virtual service name to use
+*/}}
+{{- define "httpbin.virtualServiceName" -}}
+{{- if .Values.vitualService.name }}
+{{- .Values.vitualService.name }}
+{{- else }}
+{{- printf "%s-%s"  (include "httpbin.fullname" . | trunc 61 )  "vs" }}
+{{- end }}
+{{- end }}
+
+{{/*
+Service Name
+*/}}
+{{- define "httpbin.serviceName" -}}
+{{- if .Values.service.name }}
+{{- .Values.service.name }}
+{{- else }}
+{{- printf "%s-%s"  (include "httpbin.fullname" . | trunc 60 )  "svc" }}
 {{- end }}
 {{- end }}
