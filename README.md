@@ -4,6 +4,7 @@
 NS=httpbin-v2
 CTRL_PLANE_NS=istio-system
 SECRET=httpbin-v2
+INGRESS_PORT=80
 SECURE_INGRESS_PORT=443
 MY_HOST=teste.com
 INGRESS_HOST=$(oc get pod -l app=vsphere-infra-vrrp -o yaml -n openshift-vsphere-infra | grep -i '\-\-ingress-vip' -A1 | grep -v '\-\-ingress-vip\|--' | uniq | awk '{print $2}')
@@ -47,9 +48,17 @@ oc -n openshift-ingress-operator patch ingresscontroller/default --patch '{"spec
 ```shell
 oc get route -n ${CTRL_PLANE_NS}
 # teste http
-curl -H "Host: $MY_HOST" --resolve "$MY_HOST:80:$INGRESS_HOST" "http://$MY_HOST/status/418"
-curl -H "Host: $MY_HOST" --resolve "$MY_HOST:80:$INGRESS_HOST" "http://$MY_HOST/delay/2"
+curl -H "Host: $MY_HOST" --resolve "$MY_HOST:$INGRESS_PORT:$INGRESS_HOST" "http://$MY_HOST:$INGRESS_PORT/status/418"
+curl -H "Host: $MY_HOST" --resolve "$MY_HOST:$INGRESS_PORT:$INGRESS_HOST" "http://$MY_HOST:$INGRESS_PORT/status/200"
+curl -H "Host: $MY_HOST" --resolve "$MY_HOST:$INGRESS_PORT:$INGRESS_HOST" "http://$MY_HOST:$INGRESS_PORT/delay/2"
+
+curl -s -I -HHost:$MY_HOST "http://$INGRESS_HOST:$INGRESS_PORT/status/200"
 
 curl -H "Host: $MY_HOST" --resolve "$MY_HOST:443:$INGRESS_HOST" "https://$MY_HOST:$SECURE_INGRESS_PORT/status/418"
   
+```
+# Testing with Route
+
+```shell
+curl -sH "Host: $MY_HOST" --resolve "$MY_HOST:$SECURE_INGRESS_PORT:$INGRESS_HOST" "https://$MY_HOST:$SECURE_INGRESS_PORT/status/418" -k
 ```

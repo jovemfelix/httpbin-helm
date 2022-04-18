@@ -15,6 +15,7 @@ spec:
       {{- end }}
       labels:
         {{- include "httpbin.selectorLabelsWithVersion" . | nindent 8 }}
+        maistra.io/expose-route: "true"
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:

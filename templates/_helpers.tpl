@@ -120,3 +120,14 @@ Service Name
 {{- printf "%s-%s"  (include "httpbin.fullname" . | trunc 60 )  "svc" }}
 {{- end }}
 {{- end }}
+
+{{/*
+Route Name
+*/}}
+{{- define "httpbin.routeName" -}}
+{{- if .Values.route.name }}
+{{- .Values.route.name }}
+{{- else }}
+{{- printf "%s-%s"  (include "httpbin.fullname" . | trunc 60 )  "route" }}
+{{- end }}
+{{- end }}

@@ -54,3 +54,6 @@ gateway:
 
 vitualService:
   name: ''
+
+route:
+  name: ''
