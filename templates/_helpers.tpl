@@ -120,3 +120,15 @@ Service Name
 {{- printf "%s-%s"  (include "httpbin.fullname" . | trunc 60 )  "svc" }}
 {{- end }}
 {{- end }}
+
+
+{{/*
+Ingress Name
+*/}}
+{{- define "httpbin.ingressName" -}}
+{{- if .Values.ingress.name }}
+{{- .Values.ingress.name }}
+{{- else }}
+{{- printf "%s-%s"  (include "httpbin.fullname" . | trunc 60 )  "ingress" }}
+{{- end }}
+{{- end }}

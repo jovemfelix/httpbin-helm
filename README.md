@@ -53,3 +53,8 @@ curl -H "Host: $MY_HOST" --resolve "$MY_HOST:80:$INGRESS_HOST" "http://$MY_HOST/
 curl -H "Host: $MY_HOST" --resolve "$MY_HOST:443:$INGRESS_HOST" "https://$MY_HOST:$SECURE_INGRESS_PORT/status/418"
   
 ```
+
+
+# References
+* https://istio-releases.github.io/v0.1/docs/tasks/ingress.html
+* https://stackoverflow.com/questions/68633656/how-to-specify-custom-istio-ingress-gateway-in-kubernetes-ingress
