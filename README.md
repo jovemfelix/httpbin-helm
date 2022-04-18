@@ -60,5 +60,8 @@ curl -H "Host: $MY_HOST" --resolve "$MY_HOST:443:$INGRESS_HOST" "https://$MY_HOS
 # Testing with Route
 
 ```shell
+# remove gw and vs and restart de Pods
+oc delete gw,vw,pod --all -n $NS
+# 
 curl -sH "Host: $MY_HOST" --resolve "$MY_HOST:$SECURE_INGRESS_PORT:$INGRESS_HOST" "https://$MY_HOST:$SECURE_INGRESS_PORT/status/418" -k
 ```
