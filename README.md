@@ -58,3 +58,33 @@ curl -H "Host: $MY_HOST" --resolve "$MY_HOST:443:$INGRESS_HOST" "https://$MY_HOS
 # References
 * https://istio-releases.github.io/v0.1/docs/tasks/ingress.html
 * https://stackoverflow.com/questions/68633656/how-to-specify-custom-istio-ingress-gateway-in-kubernetes-ingress
+* https://stackoverflow.com/questions/70637862/istio-ingress-only-work-on-istio-system-namsepace
+
+
+oc apply -f - <<EOF
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  name: istio
+spec:
+  controller: istio.io/ingress-controller
+EOF
+
+
+
+---
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: ingress
+spec:
+  ingressClassName: istio
+  rules:
+  - host: httpbin.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          serviceName: httpbin
+          servicePort: 8000

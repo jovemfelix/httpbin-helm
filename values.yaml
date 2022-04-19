@@ -60,13 +60,13 @@ vitualService:
 ingress:
   enabled: true
   name: ''
-  className: "openshift-router-shard"
+  className: "istio"
   annotations: {}
   hosts:
     - host: 'teste.com'
       paths:
         - path: /
-          pathType: ImplementationSpecific
+          pathType: Prefix
   tls: []
   #  - secretName: chart-example-tls
   #    hosts:
