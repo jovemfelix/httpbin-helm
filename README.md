@@ -52,7 +52,7 @@ $ helm template . --set gateway.hosts=${MY_HOST_INTERNAL} --set route.name=intra
 
 ## With External Route
 ```shell
-$ helm template . --set gateway.hosts=${MY_HOST_EXTERNAL} --set route.name=dmz  --set route.certsFromSecret=${ROUTE_DMZ} --name-template v1 --output-dir target
+$ helm template . --set gateway.hosts=${MY_HOST_EXTERNAL} --set route.name=dmz  --set route.certsFromSecret=${ROUTE_DMZ} --set route.shard=infra-shard --name-template v1 --output-dir target
 $ oc apply -f target\httpbin\templates\route.yml
 ```
 
@@ -81,10 +81,16 @@ curl -sH "Host: $MY_HOST" --resolve "$MY_HOST:$SECURE_INGRESS_PORT:$INGRESS_HOST
 
 
 # INTERNO
-
-# 
 ```shell
-$ curl -sH "Host: $MY_HOST" --resolve "$MY_HOST:$SECURE_INGRESS_PORT:$INGRESS_HOST" "https://$MY_HOST:$SECURE_INGRESS_PORT/status/418" -k
+$ curl -sH "Host: ${MY_HOST_INTERNAL}" --resolve "${MY_HOST_INTERNAL}:$SECURE_INGRESS_PORT:$INGRESS_HOST" "https://${MY_HOST_INTERNAL}:$SECURE_INGRESS_PORT/status/418" -k
 
-$ curl -sH "Host: $MY_HOST" --cacert keys/${MY_HOST}.crt --resolve "$MY_HOST:$SECURE_INGRESS_PORT:$INGRESS_HOST" "https://$MY_HOST:$SECURE_INGRESS_PORT/status/418"
+$ curl -sH "Host: ${MY_HOST_INTERNAL}" --cacert keys/${MY_HOST_INTERNAL}.crt --resolve "${MY_HOST_INTERNAL}:$SECURE_INGRESS_PORT:$INGRESS_HOST" "https://${MY_HOST_INTERNAL}:$SECURE_INGRESS_PORT/status/418"
+```
+
+# EXTERNO
+```shell
+INGRESS_HOST_DMZ=10.36.5.100
+$ curl -sH "Host: ${MY_HOST_EXTERNAL}" --resolve "${MY_HOST_EXTERNAL}:$SECURE_INGRESS_PORT:${INGRESS_HOST_DMZ}" "https://${MY_HOST_EXTERNAL}:$SECURE_INGRESS_PORT/status/418" -k
+
+$ curl -sH "Host: ${MY_HOST_EXTERNAL}" --cacert keys/${MY_HOST_EXTERNAL}.crt --resolve "${MY_HOST_EXTERNAL}:$SECURE_INGRESS_PORT:${INGRESS_HOST_DMZ}" "https://${MY_HOST_EXTERNAL}:$SECURE_INGRESS_PORT/status/418"
 ```
