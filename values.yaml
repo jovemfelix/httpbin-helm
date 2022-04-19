@@ -60,7 +60,7 @@ vitualService:
 ingress:
   enabled: true
   name: ''
-  className: "ingressgateway"
+  className: "openshift-router-shard"
   annotations: {}
   hosts:
     - host: 'teste.com'
