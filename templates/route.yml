@@ -1,8 +1,11 @@
 apiVersion: route.openshift.io/v1
 kind: Route
 metadata:
+  annotations:
+    cert-utils-operator.redhat-cop.io/certs-from-secret: {{ .Values.route.certsFromSecret | quote }}
   labels:
-    {{- include "httpbin.labels" . | nindent 4 }}
+    {{- include "httpbin.routeLabels" . | nindent 4 }}
+    
   name: {{ include "httpbin.routeName" . }}
 spec:
   host: {{ include "httpbin.gatewayHosts" . }}

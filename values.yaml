@@ -57,3 +57,5 @@ vitualService:
 
 route:
   name: ''
+  certsFromSecret: route-interna-tls
+  shard: ''

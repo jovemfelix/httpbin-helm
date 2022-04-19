@@ -34,6 +34,17 @@ Common labels
 {{ include "httpbin.selectorLabels" . }}
 service: {{default (include "httpbin.fullname" .) }}
 {{- end }}
+
+{{/*
+Route labels
+*/}}
+{{- define "httpbin.routeLabels" -}}
+{{ include "httpbin.labels" . }}
+{{- if .Values.route.shard }}
+type: {{ .Values.route.shard }}
+{{- end }}
+{{- end }}
+
 {{/*
 Selector labels
 */}}

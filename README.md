@@ -1,13 +1,16 @@
 # Setup
 > variables
 ```shell
-NS=httpbin-v2
+NS=httpbin-v1
 CTRL_PLANE_NS=istio-system
 SECRET=httpbin-v2
 INGRESS_PORT=80
 SECURE_INGRESS_PORT=443
-MY_HOST=teste.com
+MY_HOST_INTERNAL=intranet.example.com
+MY_HOST_EXTERNAL=dmz.example.com
 INGRESS_HOST=$(oc get pod -l app=vsphere-infra-vrrp -o yaml -n openshift-vsphere-infra | grep -i '\-\-ingress-vip' -A1 | grep -v '\-\-ingress-vip\|--' | uniq | awk '{print $2}')
+ROUTE_INTRA=route-intra-tls
+ROUTE_DMZ=route-dmz-tls
 ```
 
 > create namespace
@@ -15,34 +18,44 @@ INGRESS_HOST=$(oc get pod -l app=vsphere-infra-vrrp -o yaml -n openshift-vsphere
 $ oc new-project $NS
 ```
 
+
+# TLS
+
+```shell
+DOMAIN=example.com
+APP=v1-httpbin
+
+$ mkdir -p keys && cd $_
+
+$ sh ../generate-keys.sh ${DOMAIN} ${MY_HOST_INTERNAL} ${APP}
+$ sh ../generate-keys.sh ${DOMAIN} ${MY_HOST_EXTERNAL} ${APP}
+cd ..
+```shell
+
+# Secret
+```shell
+$ oc create secret tls ${ROUTE_INTRA} --key=keys/${MY_HOST_INTERNAL}.key --cert=keys/${MY_HOST_INTERNAL}.crt
+$ oc create secret tls ${ROUTE_DMZ} --key=keys/${MY_HOST_EXTERNAL}.key --cert=keys/${MY_HOST_EXTERNAL}.crt
+```
+
+
 # Manual Execution
-> Example using template and openshift apply
+> policy
 ```shell
-$ helm template . --set gateway.hosts=$MY_HOST  --name-template v1 --output-dir target
-$ oc apply -f target\httpbin\templates
-
-# or
-$ helm template . --set gateway.hosts=$MY_HOST --name-template v1 | oc apply -f -
-
+$ oc adm policy add-scc-to-user anyuid -z v1-httpbin
 ```
-
-# disable route generation
+## With Internal Route
 ```shell
-oc -n istio-system get servicemeshcontrolplanes.maistra.io basic -o yaml
-oc -n istio-system edit servicemeshcontrolplanes.maistra.io basic
+$ helm template . --set gateway.hosts=${MY_HOST_INTERNAL} --set route.name=intranet  --set route.certsFromSecret=${ROUTE_INTRA} --name-template v1 | oc apply -f -
+# helm template . --set gateway.hosts=${MY_HOST_INTERNAL} --set route.name=intranet  --set route.certsFromSecret=${ROUTE_INTRA} --name-template v1 --output-dir target
 ```
 
-```yaml
-  gateways:
-    openshiftRoute:
-      enabled: false
-```
-
-# habilitar mesmo host any project
+## With External Route
 ```shell
-oc -n openshift-ingress-operator get ingresscontroller/default -o yaml | bat -l yaml
-oc -n openshift-ingress-operator patch ingresscontroller/default --patch '{"spec":{"routeAdmission":{"namespaceOwnership":"InterNamespaceAllowed"}}}' --type=merge
+$ helm template . --set gateway.hosts=${MY_HOST_EXTERNAL} --set route.name=dmz  --set route.certsFromSecret=${ROUTE_DMZ} --name-template v1 --output-dir target
+$ oc apply -f target\httpbin\templates\route.yml
 ```
+
 
 # Helpers
 ```shell
@@ -67,20 +80,11 @@ curl -sH "Host: $MY_HOST" --resolve "$MY_HOST:$SECURE_INGRESS_PORT:$INGRESS_HOST
 ```
 
 
-# TLS
+# INTERNO
 
+# 
 ```shell
-DOMAIN=example.com
-APP=v1-httpbin
+$ curl -sH "Host: $MY_HOST" --resolve "$MY_HOST:$SECURE_INGRESS_PORT:$INGRESS_HOST" "https://$MY_HOST:$SECURE_INGRESS_PORT/status/418" -k
 
-$ mkdir -p keys && cd $_
-
-$ sh ../generate-keys.sh ${DOMAIN} ${MY_HOST} ${APP}
-cd ..
-```shell
-
-# Secret
-```shell
-oc create secret tls ${APP}-tls --key=keys/${MY_HOST}.key --cert=keys/${MY_HOST}.crt
-
+$ curl -sH "Host: $MY_HOST" --cacert keys/${MY_HOST}.crt --resolve "$MY_HOST:$SECURE_INGRESS_PORT:$INGRESS_HOST" "https://$MY_HOST:$SECURE_INGRESS_PORT/status/418"
 ```
