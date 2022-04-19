@@ -65,3 +65,22 @@ oc delete gw,vw,pod --all -n $NS
 # 
 curl -sH "Host: $MY_HOST" --resolve "$MY_HOST:$SECURE_INGRESS_PORT:$INGRESS_HOST" "https://$MY_HOST:$SECURE_INGRESS_PORT/status/418" -k
 ```
+
+
+# TLS
+
+```shell
+DOMAIN=example.com
+APP=v1-httpbin
+
+$ mkdir -p keys && cd $_
+
+$ sh ../generate-keys.sh ${DOMAIN} ${MY_HOST} ${APP}
+cd ..
+```shell
+
+# Secret
+```shell
+oc create secret tls ${APP}-tls --key=keys/${MY_HOST}.key --cert=keys/${MY_HOST}.crt
+
+```
