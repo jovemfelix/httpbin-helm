@@ -1,0 +1,1 @@
+while sleep 2; do curl -sH "Host: ${MY_HOST_EXTERNAL}" --cacert keys/${MY_HOST_EXTERNAL}.crt --resolve "${MY_HOST_EXTERNAL}:$SECURE_INGRESS_PORT:${INGRESS_HOST_DMZ}" "https://${MY_HOST_EXTERNAL}:$SECURE_INGRESS_PORT/status/418"; done

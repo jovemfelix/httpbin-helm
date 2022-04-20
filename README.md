@@ -4,13 +4,14 @@
 NS=httpbin-v1
 CTRL_PLANE_NS=istio-system
 SECRET=httpbin-v2
-INGRESS_PORT=80
-SECURE_INGRESS_PORT=443
-MY_HOST_INTERNAL=intranet.example.com
-MY_HOST_EXTERNAL=dmz.example.com
-INGRESS_HOST=$(oc get pod -l app=vsphere-infra-vrrp -o yaml -n openshift-vsphere-infra | grep -i '\-\-ingress-vip' -A1 | grep -v '\-\-ingress-vip\|--' | uniq | awk '{print $2}')
-ROUTE_INTRA=route-intra-tls
-ROUTE_DMZ=route-dmz-tls
+export INGRESS_PORT=80
+export SECURE_INGRESS_PORT=443
+export MY_HOST_INTERNAL=intranet.example.com
+export MY_HOST_EXTERNAL=dmz.example.com
+export INGRESS_HOST=$(oc get pod -l app=vsphere-infra-vrrp -o yaml -n openshift-vsphere-infra | grep -i '\-\-ingress-vip' -A1 | grep -v '\-\-ingress-vip\|--' | uniq | awk '{print $2}')
+export INGRESS_HOST_DMZ=10.36.5.100
+export ROUTE_INTRA=route-intra-tls
+export ROUTE_DMZ=route-dmz-tls
 ```
 
 > create namespace
@@ -89,8 +90,9 @@ $ curl -sH "Host: ${MY_HOST_INTERNAL}" --cacert keys/${MY_HOST_INTERNAL}.crt --r
 
 # EXTERNO
 ```shell
-INGRESS_HOST_DMZ=10.36.5.100
 $ curl -sH "Host: ${MY_HOST_EXTERNAL}" --resolve "${MY_HOST_EXTERNAL}:$SECURE_INGRESS_PORT:${INGRESS_HOST_DMZ}" "https://${MY_HOST_EXTERNAL}:$SECURE_INGRESS_PORT/status/418" -k
 
 $ curl -sH "Host: ${MY_HOST_EXTERNAL}" --cacert keys/${MY_HOST_EXTERNAL}.crt --resolve "${MY_HOST_EXTERNAL}:$SECURE_INGRESS_PORT:${INGRESS_HOST_DMZ}" "https://${MY_HOST_EXTERNAL}:$SECURE_INGRESS_PORT/status/418"
 ```
+
+while sleep 2; do curl -sH "Host: ${MY_HOST_EXTERNAL}" --cacert keys/${MY_HOST_EXTERNAL}.crt --resolve "${MY_HOST_EXTERNAL}:$SECURE_INGRESS_PORT:${INGRESS_HOST_DMZ}" "https://${MY_HOST_EXTERNAL}:$SECURE_INGRESS_PORT/status/418"; done
