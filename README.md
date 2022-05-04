@@ -1,45 +1,51 @@
 # Setup
 > variables
 ```shell
-NS=httpbin-v2
-CTRL_PLANE_NS=istio-system
-SECRET=httpbin-v2
-SECURE_INGRESS_PORT=443
-MY_HOST=teste.com
-INGRESS_HOST=$(oc get pod -l app=vsphere-infra-vrrp -o yaml -n openshift-vsphere-infra | grep -i '\-\-ingress-vip' -A1 | grep -v '\-\-ingress-vip\|--' | uniq | awk '{print $2}')
+export NS=httpbin-shard-v1
+export CTRL_PLANE_NS=istio-system
+export CTRL_PLANE_DMZ_NS=istio-system-dmz
+export ISTIO_SELECTOR=ingressgateway
+export ISTIO_SELECTOR_DMZ=shard-dmz-ingressgateway
+export SECRET=httpbin-route-tls
+export INGRESS_PORT_SECURE=443
+export MY_HOST=same.example.com
+export INGRESS_HOST=$(oc get pod -l app=vsphere-infra-vrrp -o yaml -n openshift-vsphere-infra | grep -i '\-\-ingress-vip' -A1 | grep -v '\-\-ingress-vip\|--' | uniq | awk '{print $2}')
+export INGRESS_HOST_DMZ=10.36.5.100
 ```
 
-> create namespace
+> create namespace with policy
 ```shell
 $ oc new-project $NS
+$ oc adm policy add-scc-to-user anyuid -z v1-httpbin -n $NS
 ```
 
 # Manual Execution
 > Example using template and openshift apply
 ```shell
-$ helm template . --set gateway.hosts=$MY_HOST  --name-template v1 --output-dir target
+$ helm template . --set gateway.hosts=${MY_HOST}  --name-template v1 --output-dir target
+$ oc apply -f target/httpbin/templates/smm.yaml
 $ oc apply -f target\httpbin\templates
 
 # or
-$ helm template . --set gateway.hosts=$MY_HOST --name-template v1 | oc apply -f -
+$ helm template . --set gateway.hosts=${MY_HOST} --name-template v1 | oc apply -f -
 
 ```
 
-# disable route generation
+# confirm route generation enabled
 ```shell
-oc -n istio-system get servicemeshcontrolplanes.maistra.io basic -o yaml
+oc -n istio-system get servicemeshcontrolplanes.maistra.io basic -o yaml | grep -A 2 'openshiftRoute'
 oc -n istio-system edit servicemeshcontrolplanes.maistra.io basic
 ```
 
 ```yaml
   gateways:
     openshiftRoute:
-      enabled: false
+      enabled: true
 ```
 
-# habilitar mesmo host any project
+# enable same host at any project
 ```shell
-oc -n openshift-ingress-operator get ingresscontroller/default -o yaml | bat -l yaml
+oc -n openshift-ingress-operator get ingresscontroller/default -o yaml | grep -A 2 'namespaceOwnership'
 oc -n openshift-ingress-operator patch ingresscontroller/default --patch '{"spec":{"routeAdmission":{"namespaceOwnership":"InterNamespaceAllowed"}}}' --type=merge
 ```
 
@@ -50,6 +56,134 @@ oc get route -n ${CTRL_PLANE_NS}
 curl -H "Host: $MY_HOST" --resolve "$MY_HOST:80:$INGRESS_HOST" "http://$MY_HOST/status/418"
 curl -H "Host: $MY_HOST" --resolve "$MY_HOST:80:$INGRESS_HOST" "http://$MY_HOST/delay/2"
 
-curl -H "Host: $MY_HOST" --resolve "$MY_HOST:443:$INGRESS_HOST" "https://$MY_HOST:$SECURE_INGRESS_PORT/status/418"
+curl -H "Host: $MY_HOST" --resolve "$MY_HOST:443:$INGRESS_HOST" "https://$MY_HOST:$INGRESS_PORT_SECURE/status/418"
   
+```
+
+```shell
+oc new-project ${CTRL_PLANE_DMZ_NS}
+
+# make shard-dmz namespace a member of the current control plane
+oc -n ${CTRL_PLANE_DMZ_NS} apply -f target/httpbin/templates/smm.yaml
+
+# create service in this new namespace
+oc -n ${CTRL_PLANE_NS} patch --type=merge smcp/basic -p "spec:
+  gateways:
+    additionalIngress:
+      istio-shard-dmz-ingressgateway:
+        enabled: true
+        namespace: ${CTRL_PLANE_DMZ_NS}
+        runtime:
+          deployment:
+            autoScaling:
+              enabled: true
+              maxReplicas: 4
+              minReplicas: 2
+        service:
+          metadata:
+            labels:
+              app: istio-shard-dmz-ingressgateway
+              istio: ${ISTIO_SELECTOR_DMZ}
+          type: NodePort"
+
+# view the resources created
+$ oc -n $CTRL_PLANE_DMZ_NS get svc,pod -l istio=$ISTIO_SELECTOR_DMZ
+NAME                                     TYPE       CLUSTER-IP       EXTERNAL-IP   PORT(S)                                                      AGE
+service/istio-shard-dmz-ingressgateway   NodePort   172.30.137.218   <none>        15021:32345/TCP,80:31141/TCP,443:30021/TCP,15443:31726/TCP   20m
+
+NAME                                                 READY   STATUS    RESTARTS   AGE
+pod/istio-shard-dmz-ingressgateway-b95c499fb-2k64n   1/1     Running   0          20m
+pod/istio-shard-dmz-ingressgateway-b95c499fb-cjsmv   1/1     Running   0          20m
+
+```
+
+# Enable the Node Placement and Namespace Selector
+```shell
+# list ingress controllers
+$ oc get ingresscontroller -n openshift-ingress-operator
+NAME           AGE
+default        95d
+router-shard   27d
+
+# check nodePlacement
+$ oc get ingresscontroller router-shard -n openshift-ingress-operator -o yaml | grep -A 5 'nodePlacement'
+  nodePlacement:
+    nodeSelector:
+      matchLabels:
+        node-role.kubernetes.io/infra: ""
+        type: infra-shard
+  replicas: 2
+
+# set the label into control plane for shard of DMZ
+$ oc label ns ${CTRL_PLANE_DMZ_NS} type=infra-shard
+namespace/istio-system-dmz labeled
+```
+
+# View Service Mesh Before
+```shell
+$ oc -n $NS get gw,vs
+NAME                                        AGE
+gateway.networking.istio.io/v1-httpbin-gw   16h
+
+NAME                                               GATEWAYS            HOSTS                  AGE
+virtualservice.networking.istio.io/v1-httpbin-vs   ["v1-httpbin-gw"]   ["same.example.com"]   16h
+```
+
+# Create Gateway and Virtual Service for shard DMZ
+```shell
+$ helm template . \
+--set gateway.hosts=${MY_HOST} \
+--set gateway.name=v1-httpbin-dmz-gw  \
+--set gateway.selector.istio=${ISTIO_SELECTOR_DMZ}  \
+--set vitualService.name=v1-httpbin-dmz-vs  \
+--name-template v1 --output-dir target
+$ oc -n $NS apply -f target/httpbin/templates/gateway.yaml
+$ oc -n $NS apply -f target/httpbin/templates/virtualservice.yaml
+```
+
+# View Service Mesh After
+```shell
+$ oc -n $NS get gw,vs
+NAME                                            AGE
+gateway.networking.istio.io/v1-httpbin-dmz-gw   32s
+gateway.networking.istio.io/v1-httpbin-gw       16h
+
+NAME                                                   GATEWAYS                HOSTS                  AGE
+virtualservice.networking.istio.io/v1-httpbin-dmz-vs   ["v1-httpbin-dmz-gw"]   ["same.example.com"]   26s
+virtualservice.networking.istio.io/v1-httpbin-vs       ["v1-httpbin-gw"]       ["same.example.com"]   16h
+```
+
+
+# View Service Mesh Route generated
+```shell
+$ oc -n ${CTRL_PLANE_NS} get route -l maistra.io/gateway-namespace=${NS}
+NAME                                              HOST/PORT          PATH   SERVICES               PORT    TERMINATION   WILDCARD
+httpbin-shard-v1-v1-httpbin-gw-1728dc3f992789a4   same.example.com          istio-ingressgateway   http2                 None
+
+$ oc -n ${CTRL_PLANE_DMZ_NS} get route -l maistra.io/gateway-namespace=${NS}
+NAME                                                  HOST/PORT                         PATH   SERVICES                         PORT    TERMINATION   WILDCARD
+httpbin-shard-v1-v1-httpbin-dmz-gw-1728dc3f992789a4   same.example.com ... 1 rejected          istio-shard-dmz-ingressgateway   http2                 None
+
+# detailed for shard
+$ oc -n ${CTRL_PLANE_DMZ_NS} describe route -l maistra.io/gateway-namespace=${NS}
+Name:			httpbin-shard-v1-v1-httpbin-dmz-gw-1728dc3f992789a4
+Namespace:		istio-system-dmz
+Created:		5 minutes ago
+Labels:			maistra.io/gateway-name=v1-httpbin-dmz-gw
+			maistra.io/gateway-namespace=httpbin-shard-v1
+			maistra.io/gateway-resourceVersion=131241341
+			maistra.io/generated-by=ior
+Annotations:		maistra.io/original-host=same.example.com
+Requested Host:		same.example.com
+			   exposed on router router-shard (host router-router-shard.apps-shard.wkshop.rhbr-lab.com) 5 minutes ago
+			rejected by router default:  (host router-default.apps.wkshop.rhbr-lab.com)HostAlreadyClaimed (5 minutes ago)
+			  a route in another namespace holds same.example.com and is older than httpbin-shard-v1-v1-httpbin-dmz-gw-1728dc3f992789a4
+Path:			<none>
+TLS Termination:	<none>
+Insecure Policy:	<none>
+Endpoint Port:		http2
+
+Service:	istio-shard-dmz-ingressgateway
+Weight:		100 (100%)
+Endpoints:	10.131.2.234:8080, 10.131.2.235:8080
 ```
