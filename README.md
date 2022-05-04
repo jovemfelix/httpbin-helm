@@ -273,40 +273,6 @@ $ curl -vH "Host: $MY_HOST" --resolve "$MY_HOST:80:$INGRESS_HOST" "http://$MY_HO
 
 ## with route shard DMZ
 ```shell
-$ curl -vH "Host: $MY_HOST" --resolve "$MY_HOST:80:$INGRESS_HOST" "http://$MY_HOST/status/418"
-* Added same.example.com:80:10.36.5.2 to DNS cache
-* Hostname same.example.com was found in DNS cache
-*   Trying 10.36.5.2:80...
-* Connected to same.example.com (10.36.5.2) port 80 (#0)
-> GET /status/418 HTTP/1.1
-> Host: same.example.com
-> User-Agent: curl/7.79.1
-> Accept: */*
->
-* Mark bundle as not supporting multiuse
-< HTTP/1.1 418 Unknown
-< server: istio-envoy
-< date: Wed, 04 May 2022 12:36:44 GMT
-< x-more-info: http://tools.ietf.org/html/rfc2324
-< access-control-allow-origin: *
-< access-control-allow-credentials: true
-< content-length: 135
-< x-envoy-upstream-service-time: 9
-< set-cookie: fb79b86b9b224fa11cf259bd76f174e5=4534d569f18b3c195992113c4c28d573; path=/; HttpOnly
-<
-
-    -=[ teapot ]=-
-
-       _...._
-     .'  _ _ `.
-    | ."` ^ `". _,
-    \_;`"---"`|//
-      |       ;/
-      \_     _/
-        `"""`
-* Connection #0 to host same.example.com left intact
-
-# check the dmz route
 $ curl -vH "Host: $MY_HOST" --resolve "$MY_HOST:80:$INGRESS_HOST_DMZ" "http://$MY_HOST/status/418"
 * Added same.example.com:80:10.36.5.100 to DNS cache
 * Hostname same.example.com was found in DNS cache
