@@ -154,7 +154,8 @@ virtualservice.networking.istio.io/v1-httpbin-vs       ["v1-httpbin-gw"]       [
 ```
 
 
-# View Service Mesh Route generated
+# Service Mesh Route generated
+## list
 ```shell
 $ oc -n ${CTRL_PLANE_NS} get route -l maistra.io/gateway-namespace=${NS}
 NAME                                              HOST/PORT          PATH   SERVICES               PORT    TERMINATION   WILDCARD
@@ -163,8 +164,30 @@ httpbin-shard-v1-v1-httpbin-gw-1728dc3f992789a4   same.example.com          isti
 $ oc -n ${CTRL_PLANE_DMZ_NS} get route -l maistra.io/gateway-namespace=${NS}
 NAME                                                  HOST/PORT                         PATH   SERVICES                         PORT    TERMINATION   WILDCARD
 httpbin-shard-v1-v1-httpbin-dmz-gw-1728dc3f992789a4   same.example.com ... 1 rejected          istio-shard-dmz-ingressgateway   http2                 None
+```
+## detail
+> here we can see that the default route rejected the same hostname of the shard at DMZ
+```shell
+$ oc -n ${CTRL_PLANE_NS} describe route -l maistra.io/gateway-namespace=${NS}
+Name:			httpbin-shard-v1-v1-httpbin-gw-1728dc3f992789a4
+Namespace:		istio-system
+Created:		38 minutes ago
+Labels:			maistra.io/gateway-name=v1-httpbin-gw
+			maistra.io/gateway-namespace=httpbin-shard-v1
+			maistra.io/gateway-resourceVersion=128977880
+			maistra.io/generated-by=ior
+Annotations:		maistra.io/original-host=same.example.com
+Requested Host:		same.example.com
+			   exposed on router default (host router-default.apps.wkshop.rhbr-lab.com) 38 minutes ago
+Path:			<none>
+TLS Termination:	<none>
+Insecure Policy:	<none>
+Endpoint Port:		http2
 
-# detailed for shard
+Service:	istio-ingressgateway
+Weight:		100 (100%)
+Endpoints:	10.128.7.122:8080
+
 $ oc -n ${CTRL_PLANE_DMZ_NS} describe route -l maistra.io/gateway-namespace=${NS}
 Name:			httpbin-shard-v1-v1-httpbin-dmz-gw-1728dc3f992789a4
 Namespace:		istio-system-dmz
