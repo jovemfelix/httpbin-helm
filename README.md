@@ -1,5 +1,5 @@
 # Setup
-> variables
+## variables
 ```shell
 export NS=httpbin-shard-v1
 export CTRL_PLANE_NS=istio-system
@@ -13,25 +13,15 @@ export INGRESS_HOST=$(oc get pod -l app=vsphere-infra-vrrp -o yaml -n openshift-
 export INGRESS_HOST_DMZ=10.36.5.100
 ```
 
-> create namespace with policy
+## create namespace with policy
 ```shell
 $ oc new-project $NS
 $ oc adm policy add-scc-to-user anyuid -z v1-httpbin -n $NS
 ```
 
-# Manual Execution
-> Example using template and openshift apply
-```shell
-$ helm template . --set gateway.hosts=${MY_HOST}  --name-template v1 --output-dir target
-$ oc apply -f target/httpbin/templates/smm.yaml
-$ oc apply -f target\httpbin\templates
 
-# or
-$ helm template . --set gateway.hosts=${MY_HOST} --name-template v1 | oc apply -f -
 
-```
-
-# confirm route generation enabled
+## confirm if route generation enabled
 ```shell
 $ oc -n ${CTRL_PLANE_NS} get servicemeshcontrolplanes.maistra.io basic -o yaml | grep -A 3 'openshiftRoute'
       openshiftRoute:
@@ -54,7 +44,7 @@ oc -n ${CTRL_PLANE_NS} edit servicemeshcontrolplanes.maistra.io basic
 $ oc explain ServiceMeshControlPlane.spec.gateways.openshiftRoute
 ```
 
-# enable same host at any project
+## enable same host at any project
 ```shell
 $ oc -n openshift-ingress-operator get ingresscontroller/default -o yaml | grep -A 3 'routeAdmission'
   routeAdmission:
@@ -66,7 +56,20 @@ $ oc -n openshift-ingress-operator get ingresscontroller/default -o yaml | grep 
 $ oc -n openshift-ingress-operator patch ingresscontroller/default --patch '{"spec":{"routeAdmission":{"namespaceOwnership":"InterNamespaceAllowed"}}}' --type=merge
 ```
 
-# Helpers
+# Configure HTTBin with Service Mesh
+> Example using template and openshift apply
+```shell
+$ helm template . --set gateway.hosts=${MY_HOST}  --name-template v1 --output-dir target
+$ oc apply -f target/httpbin/templates/smm.yaml
+$ oc apply -f target\httpbin\templates
+
+# or
+$ helm template . --set gateway.hosts=${MY_HOST} --name-template v1 | oc apply -f -
+
+```
+
+# Testing 01
+> test conectivity with default route
 ```shell
 oc get route -n ${CTRL_PLANE_NS}
 # teste http
@@ -74,9 +77,20 @@ curl -H "Host: $MY_HOST" --resolve "$MY_HOST:80:$INGRESS_HOST" "http://$MY_HOST/
 curl -H "Host: $MY_HOST" --resolve "$MY_HOST:80:$INGRESS_HOST" "http://$MY_HOST/delay/2"
 
 curl -H "Host: $MY_HOST" --resolve "$MY_HOST:443:$INGRESS_HOST" "https://$MY_HOST:$INGRESS_PORT_SECURE/status/418"
-  
 ```
 
+## View Service Mesh Before
+```shell
+$ oc -n $NS get gw,vs
+NAME                                        AGE
+gateway.networking.istio.io/v1-httpbin-gw   16h
+
+NAME                                               GATEWAYS            HOSTS                  AGE
+virtualservice.networking.istio.io/v1-httpbin-vs   ["v1-httpbin-gw"]   ["same.example.com"]   16h
+```
+
+# Control Plane for Shard DMZ
+## new project
 ```shell
 oc new-project ${CTRL_PLANE_DMZ_NS}
 
@@ -114,7 +128,7 @@ pod/istio-shard-dmz-ingressgateway-b95c499fb-cjsmv   1/1     Running   0        
 
 ```
 
-# Enable the Node Placement and Namespace Selector
+## Enable the Node Placement and Namespace Selector
 ```shell
 # list ingress controllers
 $ oc get ingresscontroller -n openshift-ingress-operator
@@ -136,17 +150,7 @@ $ oc label ns ${CTRL_PLANE_DMZ_NS} type=infra-shard
 namespace/istio-system-dmz labeled
 ```
 
-# View Service Mesh Before
-```shell
-$ oc -n $NS get gw,vs
-NAME                                        AGE
-gateway.networking.istio.io/v1-httpbin-gw   16h
-
-NAME                                               GATEWAYS            HOSTS                  AGE
-virtualservice.networking.istio.io/v1-httpbin-vs   ["v1-httpbin-gw"]   ["same.example.com"]   16h
-```
-
-# Create Gateway and Virtual Service for shard DMZ
+## Create Gateway and Virtual Service for shard DMZ
 ```shell
 $ helm template . \
 --set gateway.hosts=${MY_HOST} \
@@ -158,7 +162,7 @@ $ oc -n $NS apply -f target/httpbin/templates/gateway.yaml
 $ oc -n $NS apply -f target/httpbin/templates/virtualservice.yaml
 ```
 
-# View Service Mesh After
+## View Service Mesh After
 ```shell
 $ oc -n $NS get gw,vs
 NAME                                            AGE
@@ -169,7 +173,6 @@ NAME                                                   GATEWAYS                H
 virtualservice.networking.istio.io/v1-httpbin-dmz-vs   ["v1-httpbin-dmz-gw"]   ["same.example.com"]   26s
 virtualservice.networking.istio.io/v1-httpbin-vs       ["v1-httpbin-gw"]       ["same.example.com"]   16h
 ```
-
 
 # Service Mesh Route generated
 ## list
@@ -229,9 +232,47 @@ Endpoints:	10.131.2.234:8080, 10.131.2.235:8080
 ```
 
 
-# Test it
+# Testing 02
+> test conectivity with default route and with sharding one
+
+## with route default
 ```shell
-# check the internal route
+$ curl -vH "Host: $MY_HOST" --resolve "$MY_HOST:80:$INGRESS_HOST" "http://$MY_HOST/status/418"
+* Added same.example.com:80:10.36.5.2 to DNS cache
+* Hostname same.example.com was found in DNS cache
+*   Trying 10.36.5.2:80...
+* Connected to same.example.com (10.36.5.2) port 80 (#0)
+> GET /status/418 HTTP/1.1
+> Host: same.example.com
+> User-Agent: curl/7.79.1
+> Accept: */*
+>
+* Mark bundle as not supporting multiuse
+< HTTP/1.1 418 Unknown
+< server: istio-envoy
+< date: Wed, 04 May 2022 12:36:44 GMT
+< x-more-info: http://tools.ietf.org/html/rfc2324
+< access-control-allow-origin: *
+< access-control-allow-credentials: true
+< content-length: 135
+< x-envoy-upstream-service-time: 9
+< set-cookie: fb79b86b9b224fa11cf259bd76f174e5=4534d569f18b3c195992113c4c28d573; path=/; HttpOnly
+<
+
+    -=[ teapot ]=-
+
+       _...._
+     .'  _ _ `.
+    | ."` ^ `". _,
+    \_;`"---"`|//
+      |       ;/
+      \_     _/
+        `"""`
+* Connection #0 to host same.example.com left intact
+```
+
+## with route shard DMZ
+```shell
 $ curl -vH "Host: $MY_HOST" --resolve "$MY_HOST:80:$INGRESS_HOST" "http://$MY_HOST/status/418"
 * Added same.example.com:80:10.36.5.2 to DNS cache
 * Hostname same.example.com was found in DNS cache
@@ -298,5 +339,4 @@ $ curl -vH "Host: $MY_HOST" --resolve "$MY_HOST:80:$INGRESS_HOST_DMZ" "http://$M
       \_     _/
         `"""`
 * Connection #0 to host same.example.com left intact
-
 ```
