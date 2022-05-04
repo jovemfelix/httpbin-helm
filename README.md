@@ -33,20 +33,37 @@ $ helm template . --set gateway.hosts=${MY_HOST} --name-template v1 | oc apply -
 
 # confirm route generation enabled
 ```shell
-oc -n istio-system get servicemeshcontrolplanes.maistra.io basic -o yaml | grep -A 2 'openshiftRoute'
-oc -n istio-system edit servicemeshcontrolplanes.maistra.io basic
-```
+$ oc -n ${CTRL_PLANE_NS} get servicemeshcontrolplanes.maistra.io basic -o yaml | grep -A 3 'openshiftRoute'
+      openshiftRoute:
+        enabled: true
+    general:
+      logging:
 
+# if you need to change - edit it...      
+oc -n ${CTRL_PLANE_NS} edit servicemeshcontrolplanes.maistra.io basic
+```
+> bellow you can see yaml of Control Plane
 ```yaml
   gateways:
     openshiftRoute:
       enabled: true
 ```
 
+```shell
+# more info you can get here
+$ oc explain ServiceMeshControlPlane.spec.gateways.openshiftRoute
+```
+
 # enable same host at any project
 ```shell
-oc -n openshift-ingress-operator get ingresscontroller/default -o yaml | grep -A 2 'namespaceOwnership'
-oc -n openshift-ingress-operator patch ingresscontroller/default --patch '{"spec":{"routeAdmission":{"namespaceOwnership":"InterNamespaceAllowed"}}}' --type=merge
+$ oc -n openshift-ingress-operator get ingresscontroller/default -o yaml | grep -A 3 'routeAdmission'
+  routeAdmission:
+    namespaceOwnership: InterNamespaceAllowed
+  tuningOptions: {}
+  unsupportedConfigOverrides: null
+
+# if you need to patch it
+$ oc -n openshift-ingress-operator patch ingresscontroller/default --patch '{"spec":{"routeAdmission":{"namespaceOwnership":"InterNamespaceAllowed"}}}' --type=merge
 ```
 
 # Helpers
